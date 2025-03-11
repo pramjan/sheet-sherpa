@@ -22,7 +22,26 @@ A powerful web-based tool for exploring and analyzing Excel/CSV files with an in
 - **Summary Stats**:  
   Automatically compute statistics for numeric/datetime columns.  
 
-### How to Use:
+### Installation and Running the app:
+
+#### Install Dependencies
+Run the following command in your terminal to install required packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+#### Run the App
+
+Execute the `streamlit` app:
+
+```bash
+streamlit run sheet_sherpa.py
+```
+
+This will then open the app in your browser at [`streamlit`'s default local server](http://localhost:8501)
+
+### How to Use the app:
 1. Upload an Excel (`.xlsx`) or CSV file via the sidebar.  
 2. Choose the sheet (if multi-sheet) and header row.  
 3. Apply filters, search terms, or aggregation settings.  
