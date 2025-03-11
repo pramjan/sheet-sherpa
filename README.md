@@ -39,7 +39,7 @@ Execute the `streamlit` app:
 streamlit run sheet_sherpa.py
 ```
 
-This will then open the app in your browser at [`streamlit`'s default local server](http://localhost:8501)
+This will then open the app in your browser at `streamlit`'s [default local server](http://localhost:8501)
 
 ### How to Use the app:
 1. Upload an Excel (`.xlsx`) or CSV file via the sidebar.  
