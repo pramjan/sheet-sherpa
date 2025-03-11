@@ -350,8 +350,8 @@ def advanced_filtering(df):
 
 # --- Main App Logic ---
 
-st.title("Excel Analyzer")
-st.write("Upload an Excel file to analyze its contents with advanced filtering and search.")
+st.title("Sheet Sherpa")
+st.write("Upload an Excel/CSV file to analyze its contents with advanced filtering and search.")
 
 # Sidebar for file upload
 st.sidebar.title("File Selector")
