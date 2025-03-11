@@ -47,13 +47,14 @@ st.markdown(
 # --- Utility Functions ---
 
 @st.cache_data(show_spinner=False)  # Changed to st.cache_data
-def load_excel(file, sheet_name=None, header_row=0):
+def load_excel(file, sheet_name=None, header_row=0, usecols=None):
     """Loads an Excel file, handling sheet selection, header row, and errors.
 
     Args:
         file (BytesIO or str): The Excel file (either a BytesIO object or a file path).
         sheet_name (str, optional): The name of the sheet to load. Defaults to None (load sheet names).
         header_row (int, optional): The row number (0-indexed) to use as the header. Defaults to 0.
+        usecols (list, optional): List of columns to load. Defaults to None (load all columns).
 
     Returns:
         tuple: A tuple containing:
@@ -67,14 +68,26 @@ def load_excel(file, sheet_name=None, header_row=0):
                 excel_file = openpyxl.load_workbook(file, read_only=True)
                 sheet_names = excel_file.sheetnames
                 return None, sheet_names, None  # Return None, sheet_names, header_row
-            df = pd.read_excel(file, engine='openpyxl', sheet_name=sheet_name, header=header_row)
-            return df, None, header_row  # Return df, None, header_row
-        # Assuming file is a file path (for testing)
-        if sheet_name is None:
-            excel_file = openpyxl.load_workbook(file, read_only=True)
-            sheet_names = excel_file.sheetnames
-            return None, sheet_names, None
-        df = pd.read_excel(file, engine='openpyxl', sheet_name=sheet_name, header=header_row)
+            df = pd.read_excel(file, engine='openpyxl', sheet_name=sheet_name, header=header_row, usecols=usecols)
+        else: # Assuming file is a file path (for testing)
+            if sheet_name is None:
+                excel_file = openpyxl.load_workbook(file, read_only=True)
+                sheet_names = excel_file.sheetnames
+                return None, sheet_names, None
+            df = pd.read_excel(file, engine='openpyxl', sheet_name=sheet_name, header=header_row, usecols=usecols)
+
+        # Handle empty columns at the end
+        if not df.empty:
+            last_non_empty_col_idx = -1
+            for idx in range(len(df.columns) - 1, -1, -1):
+                if not df.iloc[:, idx].isnull().all():
+                    last_non_empty_col_idx = idx
+                    break
+            if last_non_empty_col_idx != -1:
+                df = df.iloc[:, :last_non_empty_col_idx+1]
+            else: # All columns are empty
+                df = pd.DataFrame() # Return empty dataframe
+
         return df, None, header_row
     except Exception as e:
         st.error(f"Error loading Excel file or sheet: {e}")
@@ -367,13 +380,13 @@ df = pd.DataFrame()
 sheet_names = None
 selected_sheet = None  # Initialize selected_sheet
 header_row = 0 # Initialize header_row
+selected_columns = None # Initialize selected_columns
 
 if uploaded_file:
     file_content = BytesIO(uploaded_file.read())
 
     # --- Sheet and Header Selection ---
-    df, sheet_names, _ = load_excel(file_content)  # Initial load
-
+    _, sheet_names, _ = load_excel(file_content)  # Load sheet names first, df is None here
 
     if sheet_names:
         selected_sheet = st.sidebar.selectbox("Select a sheet", sheet_names)  # Corrected: String
@@ -381,13 +394,42 @@ if uploaded_file:
     # Header Row Selection (placed inside sidebar)
     header_row = st.sidebar.number_input("Header Row (0-indexed)", min_value=0, value=0, step=1)  # Corrected: String
 
+    # Load initial dataframe (all columns first to allow column selection)
     if selected_sheet:
-        df, _, header_row = load_excel(file_content, sheet_name=selected_sheet, header_row=header_row)
-    elif sheet_names is None and df is None:
+        temp_df, _, _ = load_excel(file_content, sheet_name=selected_sheet, header_row=header_row)
+    elif sheet_names is None: # Single sheet excel file
+        temp_df, _, _ = load_excel(file_content, header_row=header_row)
+    else:
+        temp_df = pd.DataFrame()
+
+    if not temp_df.empty:
+        # Column selection
+        available_columns = temp_df.columns.tolist()
+        selected_columns = st.sidebar.multiselect("Select columns to display and filter", options=available_columns, default=available_columns)
+
+        # Load dataframe again with selected columns
+        if selected_columns:
+            if selected_sheet:
+                df, _, _ = load_excel(file_content, sheet_name=selected_sheet, header_row=header_row, usecols=selected_columns)
+            elif sheet_names is None: # Single sheet excel file
+                df, _, _ = load_excel(file_content, header_row=header_row, usecols=selected_columns)
+            else:
+                df = pd.DataFrame(columns=selected_columns) # In case no sheet and columns selected.
+        else: # No columns selected
+            df = pd.DataFrame()
+
+    elif sheet_names is None and not uploaded_file.name.endswith('.csv'): # For empty excel files with no sheets.
         st.warning("No sheets found in the uploaded file.")
-        # df already initialized as empty DataFrame
-    elif df is not None: #Single sheet excel file.
-        df, _, header_row = load_excel(file_content, header_row=header_row) #Load with header.
+        df = pd.DataFrame()
+    elif uploaded_file.name.endswith('.csv'): # Handle CSV files (no sheets)
+        df = pd.read_csv(uploaded_file)
+        available_columns = df.columns.tolist()
+        selected_columns = st.sidebar.multiselect("Select columns to display and filter", options=available_columns, default=available_columns)
+        if selected_columns:
+            df = df[selected_columns]
+        else:
+            df = pd.DataFrame()
+
 
     if not df.empty:
         # --- Data Cleaning ---
